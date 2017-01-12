@@ -20,6 +20,18 @@ static int linlink(CSOUND *csound, LINLINK *p) {
   return OK;
 }
 
+typedef struct {
+  OPDS    h;
+  MYFLT   *kout, *kx, *kx0, *kx1;
+} LIN1;
+
+static int lin1(CSOUND *csound, LINLINK *p) {
+  MYFLT kx0 = *p->kx0;
+  *p->kout = kx0 + (*p->kx) * ((*p->kx1) - kx0); 
+  return OK;
+}
+
+
 /* ------------- xyscale --------------
 
    2d linear interpolation (normalized)
@@ -347,6 +359,8 @@ static int mton(CSOUND *csound, MTON *p) {
 
 static OENTRY localops[] = {
   { "em_linlin",  S(LINLINK),   0, 2,      "k", "kkkkk",   NULL, (SUBR)linlink },
+  { "lin1",  S(LIN1),           0, 2,      "k", "kkk",     NULL, (SUBR)lin1 },
+  { "lin1",  S(LIN1),           0, 1,      "i", "iii",     NULL, (SUBR)lin1 },
   { "em_xyscale", S(XYSCALE),   0, 2,      "k", "kkkkkk",  NULL, (SUBR)xyscale },
   { "em_xyscale", S(XYSCALE),   0, 3,      "k", "kkiiii",  (SUBR)xyscalei_init, (SUBR)xyscalei },
   { "mtof",       S(PITCHCONV), 0, 3,      "k", "ko",  (SUBR)mtof_init, (SUBR)mtof},

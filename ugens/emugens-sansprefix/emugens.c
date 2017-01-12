@@ -1,4 +1,5 @@
 /*
+
     emugens.c
 
 */
@@ -6,6 +7,19 @@
 // #include <math.h>
 #include <csdl.h>
 
+/*
+
+  linlin 
+
+  linear to linear conversion
+
+  ky = linlin(kx, kxlow, kxhigh, kylow, kyhigh)
+  
+  ky = (kx - kxlow) / (kxhigh - kxlow) * (kyhigh - kylow) + kylow
+
+  linlin(0.25, 0, 1, 1, 3) ; --> 1.5
+
+ */
 
 typedef struct {
   OPDS    h;
@@ -20,35 +34,31 @@ static int linlink(CSOUND *csound, LINLINK *p) {
   return OK;
 }
 
-typedef struct {
-  OPDS    h;
-  MYFLT   *kout, *kx, *kx0, *kx1;
-  MYFLT   dx;
-} LIN1;
 
-static int lin1(CSOUND *csound, LIN1 *p) {
-  MYFLT kx0 = *p->kx0;
-  *p->kout = *p->kx * (*p->kx1 - kx0) + kx0;
-  return OK;
-}
+/* ------------- xyscale --------------
 
-static int lin1i_init(CSOUND *csound, LIN1 *p) {
-  p->dx = *p->kx1 - *p->kx0;
-  return OK;
-}
+2d linear interpolation (normalized)
 
-static int lin1i(CSOUND *csound, LIN1 *p) {
-  *p->kout = *p->kx * p->dx + (*p->kx0);
-  return OK;
-}
-  
+Given values for four points at (0, 0), (0, 1), (1, 0), (1, 1), 
+calculate the interpolated value at a given coord (x, y) inside this square
+
+inputs: kx, ky, v00, v10, v01, v11
+
+kx, ky: coord, between 0-1
+
+This is conceptually the same as:
+
+ky0 = scale(kx, v01, v00)
+ky1 = scale(kx, v11, v10)
+kout = scale(ky, ky1, ky0)
+
+*/
 
 typedef struct {
   OPDS    h;
   MYFLT   *kout, *kx, *ky, *v00, *v10, *v01, *v11;
   MYFLT   d0, d1;
 } XYSCALE;
-
 
 static int xyscalei_init(CSOUND *csound, XYSCALE *p) {
   p->d0 = (*p->v01) - (*p->v00);
@@ -66,7 +76,6 @@ static int xyscalei(CSOUND *csound, XYSCALE *p) {
 
 static int xyscale(CSOUND *csound, XYSCALE *p) {
   // x, y: between 0-1
-  // k00, k10, k01, k11: kx0y0 kx1y0 kx0y1 kx1y1
   // x, y will interpolate between the values at the 4 corners
   MYFLT v00 = *p->v00;
   MYFLT v10 = *p->v10;
@@ -77,6 +86,14 @@ static int xyscale(CSOUND *csound, XYSCALE *p) {
   return OK;
 }
 
+/*  mtof -- ftom 
+
+midi to frequency conversion
+
+kfreq = mtof(69, 442)  ; A4 is optional, default=442
+kfreq = mtof(69)
+
+*/
 
 typedef struct {
   OPDS    h;
@@ -88,7 +105,6 @@ static int mtof(CSOUND *csound, PITCHCONV *p) {
   *p->r = pow(FL(2.0), (*p->k - FL(69.0)) / FL(12.0)) * p->freqA4;
   return OK;
 }
-
 
 static int mtof_init(CSOUND *csound, PITCHCONV *p) {
   p->freqA4 = (*p->ka4) > FL(0.0) ? (*p->ka4) : FL(442.0);
@@ -107,7 +123,6 @@ static int ftom_init(CSOUND *csound, PITCHCONV *p) {
   return OK;
 }
 
-
 static int pchtom(CSOUND *csound, PITCHCONV *p) {
   MYFLT pch = *p->k;
   MYFLT oct = floor(pch);
@@ -117,22 +132,33 @@ static int pchtom(CSOUND *csound, PITCHCONV *p) {
 }
 
 
-// bpf: bpf(x, x0, x1, y0, y1, ...)  3, 4, and 5 pairs.
-// TODO: do a generic solution
+/*
+  bpf  --> break point function with linear interpolation
 
-#define INTERP_L(X, X0, X1, Y0, Y1) (X < (X0) ? (Y0) : ((X-(X0))/((X1)-(X0)) * ((Y1)-(Y0)) + (Y0)))
+  Useful for smaller cases where:
+
+  * defining a table is overkill
+  * higher accuracy in the x coord 
+  * values are changing at k-rate
+
+  ky  bpf  kx, kx0, ky0, kx1, ky1, ...
+
+*/
+
+
+#define INTERP_L(X, X0, X1, Y0, Y1) ((X) < (X0) ? (Y0) : (((X)-(X0))/((X1)-(X0)) * ((Y1)-(Y0)) + (Y0)))
 
 inline MYFLT interpol_l(MYFLT x, MYFLT x0, MYFLT x1, MYFLT y0, MYFLT y1) {
   return x < x0 ? y0 : ((x-x0)/(x1-x0) * (y1-y0) + y0);
 }
 
-#define INTERP_R(X, X0, X1, Y0, Y1) (X > (X1) ? (Y1) : (((X)-(X0))/((X1)-(X0)) * ((Y1)-(Y0)) + (Y0)))
+#define INTERP_R(X, X0, X1, Y0, Y1) ((X) > (X1) ? (Y1) : (((X)-(X0))/((X1)-(X0)) * ((Y1)-(Y0)) + (Y0)))
 									 
 inline MYFLT interpol_r(MYFLT x, MYFLT x0, MYFLT x1, MYFLT y0, MYFLT y1) {
   return x > x1 ? y0 : ((x-x0)/(x1-x0) * (y1-y0) + y0);
 }
 
-#define INTERP_M(X, X0, X1, Y0, Y1) ((X-(X0))/((X1)-(X0)) * ((Y1)-(Y0)) + (Y0))
+#define INTERP_M(X, X0, X1, Y0, Y1) (((X)-(X0))/((X1)-(X0)) * ((Y1)-(Y0)) + (Y0))
 
 inline MYFLT interpol_m(MYFLT x, MYFLT x0, MYFLT x1, MYFLT y0, MYFLT y1) {
   return (x-x0)/(x1-x0) * (y1-y0) + y0;
@@ -146,12 +172,15 @@ typedef struct {
 
   
 static int bpf3(CSOUND *csound, BPF3 *p) {
-  MYFLT x = *p->x;  
+  MYFLT x = *p->x;
+  MYFLT n, m;
   if(x<*p->x1) {
-	*p->r = INTERP_L(x, *p->x0, *p->x1, *p->y0, *p->y1);
+	m = *p->x0; n = *p->y0;
+	*p->r = INTERP_L(x, m, *p->x1, n, *p->y1);
   } else {
-	//*p->r = interpol_r(x, *p->x1, *p->x2, *p->y1, *p->y1);
-	*p->r = INTERP_R(x, *p->x1, *p->x2, *p->y1, *p->y2);
+	m = *p->x1;
+	n = *p->y1; 
+	*p->r = INTERP_R(x, m, *p->x2, n, *p->y2);
   }
   return OK;
 }
@@ -164,12 +193,16 @@ typedef struct {
   
 static int bpf4(CSOUND *csound, BPF4 *p) {
   MYFLT x = *p->x;
+  MYFLT m, n;
   if(x < (*p->x1)) {
-	*p->r = INTERP_L(x, *p->x0, *p->x1, *p->y0, *p->y1);
+	m = *p->x0; n = *p->y0;
+	*p->r = INTERP_L(x, m, *p->x1, n, *p->y1);
   } else if (x < (*p->x2)) {
-	*p->r = INTERP_M(x, *p->x1, *p->x2, *p->y1, *p->y2);
+	m = *p->x1; n = *p->y1;
+	*p->r = INTERP_M(x, m, *p->x2, n, *p->y2);
   }  else {
-	*p->r = INTERP_R(x, *p->x2, *p->x3, *p->y2, *p->y3);
+	m = *p->x2; n = *p->y2;
+	*p->r = INTERP_R(x, m, *p->x3, n, *p->y3);
   }
   return OK;
 }
@@ -195,6 +228,12 @@ static int bpf5(CSOUND *csound, BPF5 *p) {
   return OK;
 }
 
+/*  ntom  - mton
+
+	midi to notename conversion
+
+ */
+
 typedef struct {
   OPDS h;
   MYFLT *r;
@@ -214,7 +253,7 @@ static int ntom(CSOUND *csound, NTOM *p) {
   int octave = n[0] - '0';
   int pcidx = n[1] - 'A';
   if(pcidx < 0 || pcidx >= 7) {
-	printf("not ok: pcidx=%d \n", pcidx);
+	printf("expecting a chr between A and G, but got %c\n", n[1]);
 	return NOTOK;
   }
   int pc = _pcs[pcidx];
@@ -328,30 +367,27 @@ static int mton(CSOUND *csound, MTON *p) {
 	dst[i] = '\0';
   }
 }
+
 	
 #define S(x)    sizeof(x)
 
 static OENTRY localops[] = {
-  { "em_linlin",  S(LINLINK),   0, 2,      "k", "kkkkk",   NULL, (SUBR)linlink },
-  { "em_xyscale", S(XYSCALE),   0, 2,      "k", "kkkkkk",  NULL, (SUBR)xyscale },
-  { "em_xyscale", S(XYSCALE),   0, 3,      "k", "kkiiii",  (SUBR)xyscalei_init, (SUBR)xyscalei },
-  { "em_lin1",    S(LIN1),      0, 2,      "k", "kkk", NULL, (SUBR)lin1 },
-  { "em_lin1",    S(LIN1),      0, 3,      "k", "kii", (SUBR)lin1i_init, (SUBR)lin1i },
-  { "mtof",       S(PITCHCONV), 0, 3,      "k", "ko",  (SUBR)mtof_init, (SUBR)mtof},
-  { "mtof",       S(PITCHCONV), 0, 1,      "i", "io",  (SUBR)mtof_init},
-  { "ftom",    S(PITCHCONV),    0, 3,      "k", "ko",  (SUBR)ftom_init, (SUBR)ftom},
-  { "ftom",    S(PITCHCONV),    0, 1,      "i", "io",  (SUBR)ftom_init},
-  { "pchtom",  S(PITCHCONV),    0, 1,      "i", "i",   (SUBR)pchtom},
-  { "pchtom",  S(PITCHCONV),    0, 2,      "k", "k",   (SUBR)pchtom},
-  { "bpf",     S(BPF3),         0, 3,      "k", "kkkkkkk", (SUBR)bpf3, (SUBR)bpf3 },
-  { "bpf",     S(BPF4),         0, 3,      "k", "kkkkkkkkk", (SUBR)bpf4, (SUBR)bpf4 },
-  { "bpf",     S(BPF5),         0, 3,      "k", "kkkkkkkkkkk", (SUBR)bpf5, (SUBR)bpf5 },
-  { "ntom",    S(NTOM),         0, 2,      "k", "S", NULL, (SUBR)ntom },
-  { "ntom",    S(NTOM),         0, 1,      "i", "S", (SUBR)ntom },
-  { "mton",    S(MTON),         0, 2,      "S", "k", NULL, (SUBR)mton},
-  { "mton",    S(MTON),         0, 1,      "S", "i", (SUBR)mton}
-  // { "linlin_i", S(LINLINI), 0, 3, "k",  "kiiii", (SUBR)linlini_init, (SUBR)linlini_process }
-
+  { "linlin",  S(LINLINK),   0, 2,      "k", "kkkkk",   NULL, (SUBR)linlink },
+  { "xyscale", S(XYSCALE),   0, 2,      "k", "kkkkkk",  NULL, (SUBR)xyscale },
+  { "xyscale", S(XYSCALE),   0, 3,      "k", "kkiiii",  (SUBR)xyscalei_init, (SUBR)xyscalei },
+  { "mtof",    S(PITCHCONV), 0, 3,      "k", "ko",  (SUBR)mtof_init, (SUBR)mtof},
+  { "mtof",    S(PITCHCONV), 0, 1,      "i", "io",  (SUBR)mtof_init},
+  { "ftom",    S(PITCHCONV), 0, 3,      "k", "ko",  (SUBR)ftom_init, (SUBR)ftom},
+  { "ftom",    S(PITCHCONV), 0, 1,      "i", "io",  (SUBR)ftom_init},
+  { "pchtom",  S(PITCHCONV), 0, 1,      "i", "i",   (SUBR)pchtom},
+  { "pchtom",  S(PITCHCONV), 0, 2,      "k", "k",   NULL, (SUBR)pchtom},
+  { "bpf",     S(BPF3),      0, 3,      "k", "kkkkkkk",     (SUBR)bpf3, (SUBR)bpf3 },
+  { "bpf",     S(BPF4),      0, 3,      "k", "kkkkkkkkk",   (SUBR)bpf4, (SUBR)bpf4 },
+  { "bpf",     S(BPF5),      0, 3,      "k", "kkkkkkkkkkk", (SUBR)bpf5, (SUBR)bpf5 },
+  { "ntom",    S(NTOM),      0, 3,      "k", "S", (SUBR)ntom, (SUBR)ntom },
+  { "ntom",    S(NTOM),      0, 1,      "i", "S", (SUBR)ntom },
+  { "mton",    S(MTON),      0, 3,      "S", "k", (SUBR)mton, (SUBR)mton},
+  { "mton",    S(MTON),      0, 1,      "S", "i", (SUBR)mton}
 };
 
 
