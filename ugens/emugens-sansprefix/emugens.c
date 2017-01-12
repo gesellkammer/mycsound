@@ -97,7 +97,7 @@ kfreq = mtof(69)
 
 typedef struct {
   OPDS    h;
-  MYFLT *r, *k, *ka4;
+  MYFLT *r, *k;
   MYFLT freqA4;
 } PITCHCONV;
 
@@ -107,7 +107,7 @@ static int mtof(CSOUND *csound, PITCHCONV *p) {
 }
 
 static int mtof_init(CSOUND *csound, PITCHCONV *p) {
-  p->freqA4 = (*p->ka4) > FL(0.0) ? (*p->ka4) : FL(442.0);
+  p->freqA4 = csound->GetA4(csound);
   mtof(csound, p);
   return OK;
 }
@@ -118,7 +118,7 @@ static int ftom(CSOUND *csound, PITCHCONV *p) {
 }
 
 static int ftom_init(CSOUND *csound, PITCHCONV *p) {
-  p->freqA4 = (*p->ka4) > FL(0.0) ? (*p->ka4) : FL(442.0);
+  p->freqA4 = csound->GetA4(csound);
   ftom(csound, p);
   return OK;
 }
@@ -227,6 +227,7 @@ static int bpf5(CSOUND *csound, BPF5 *p) {
   }
   return OK;
 }
+
 
 /*  ntom  - mton
 
@@ -375,10 +376,10 @@ static OENTRY localops[] = {
   { "linlin",  S(LINLINK),   0, 2,      "k", "kkkkk",   NULL, (SUBR)linlink },
   { "xyscale", S(XYSCALE),   0, 2,      "k", "kkkkkk",  NULL, (SUBR)xyscale },
   { "xyscale", S(XYSCALE),   0, 3,      "k", "kkiiii",  (SUBR)xyscalei_init, (SUBR)xyscalei },
-  { "mtof",    S(PITCHCONV), 0, 3,      "k", "ko",  (SUBR)mtof_init, (SUBR)mtof},
-  { "mtof",    S(PITCHCONV), 0, 1,      "i", "io",  (SUBR)mtof_init},
-  { "ftom",    S(PITCHCONV), 0, 3,      "k", "ko",  (SUBR)ftom_init, (SUBR)ftom},
-  { "ftom",    S(PITCHCONV), 0, 1,      "i", "io",  (SUBR)ftom_init},
+  { "mtof",    S(PITCHCONV), 0, 3,      "k", "k",  (SUBR)mtof_init, (SUBR)mtof},
+  { "mtof",    S(PITCHCONV), 0, 1,      "i", "i",  (SUBR)mtof_init},
+  { "ftom",    S(PITCHCONV), 0, 3,      "k", "k",  (SUBR)ftom_init, (SUBR)ftom},
+  { "ftom",    S(PITCHCONV), 0, 1,      "i", "i",  (SUBR)ftom_init},
   { "pchtom",  S(PITCHCONV), 0, 1,      "i", "i",   (SUBR)pchtom},
   { "pchtom",  S(PITCHCONV), 0, 2,      "k", "k",   NULL, (SUBR)pchtom},
   { "bpf",     S(BPF3),      0, 3,      "k", "kkkkkkk",     (SUBR)bpf3, (SUBR)bpf3 },
