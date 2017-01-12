@@ -4,11 +4,12 @@
 
 Breakpoint function (linear interpolation)
 
-Interpolates between the points (kxn, kyn)
+Interpolates between the points (kxn, kyn).
 
 
 
     ky  bpf kx, kx0, ky0, kx1, ky1, kx2, ky2, ...
+
 
 
 ## linlin
@@ -43,4 +44,43 @@ cents lower)
 valid for `4C-`
 * Only uppercase is accepted
 
+
+## pchtom
+
+Convert octave.pitch to midi
+
+
+    kmidi = pchtom(8.07)
+
+
+## xyscale
+
+2D interpolation between 4 presets, like a xy widget
+
+
+
+    kout  xyscale kx, ky, k00, k10, k01, k11
+ 
+
+
+Given 4 values corresponding to points at
+
+
+    k10          k11
+
+
+
+    k00          k10
+
+
+interpolate the values according to kx, ky, 
+where kx and ky are between 0-1
+
+
+This is the same as:
+
+
+    ky0 = scale(kx, k01, k00)
+    ky1 = scale(ky, k11, k10)
+	kout = scale(ky, ky1, ky0)
 
