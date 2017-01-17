@@ -1,9 +1,10 @@
 #!/bin/bash
-SO=emugens.so
+SRC=scugens
+SO=$SRC.so
 pluginsdir=/usr/local/lib/csound/plugins64-6.0
 includedir=/usr/local/include/csound
 
-cmd="gcc -O2 -shared -o $SO -fPIC emugens.c -DUSE_DOUBLE -I$includedir"
+cmd="gcc -O2 -shared -o $SO -fPIC $SRC.c -DUSE_DOUBLE -I$includedir"
 echo $cmd
 $cmd
 
@@ -14,5 +15,4 @@ cmd="cp $SO $pluginsdir"
 echo $cmd
 $cmd
 
-echo
-echo "To check installation, do csound -z ^&1 | grep xxx"
+# To check installation, do csound -z ^&1 | grep <ugen>"
