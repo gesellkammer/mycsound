@@ -11,12 +11,12 @@
 #define CALCSLOPE(next,prev,nsmps) ((next - prev) * (FL(1)/nsmps))
 #define SR (csound->GetSr(csound))
 
-#define LOOP1(length, stmt)			\
-	{	int xxn = (length);			\
-		do {						\
-			stmt;					\
-		} while (--xxn);			\
-}
+#define LOOP1(length, stmt)    \
+  {	int xxn = (length);		   \
+	do {					   \
+	  stmt;					   \
+	} while (--xxn);		   \
+  }
 
 inline MYFLT zapgremlins(MYFLT x)
 {
@@ -267,7 +267,7 @@ static int lagud_k(CSOUND *csound, LagUD *p) {
 	
   } else {
 	MYFLT sr = csound->GetKr(csound);
-	// faust uses tau2pole = exp(-1 / (lag*sr))
+	// faust uses tau2pole = exp(-1 / (lag*sr)), sc uses log(0.01)
 	p->b1u = lagu == FL(0) ? FL(0) : exp(LOG001 / (lagu * sr));
 	p->lagu = lagu;
 	p->b1d = lagd == FL(0) ? FL(0) : exp(LOG001 / (lagd * sr));
