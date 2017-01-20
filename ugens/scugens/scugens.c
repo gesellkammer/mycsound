@@ -28,6 +28,27 @@ inline MYFLT zapgremlins(MYFLT x)
 	return (absx > (MYFLT)1e-15 && absx < (MYFLT)1e15) ? x : (MYFLT)0.;
 }
 
+
+
+inline MYFLT sc_wrap(MYFLT in, MYFLT lo, MYFLT hi)
+{
+	MYFLT range;
+	// avoid the divide if possible
+	if (in >= hi) {
+		range = hi - lo;
+		in -= range;
+		if (in < hi) return in;
+	} else if (in < lo) {
+		range = hi - lo;
+		in += range;
+		if (in >= lo) return in;
+	} else return in;
+
+	if (hi == lo) return lo;
+	return in - range * floor((in - lo)/range);
+}
+
+
 /*
 
   lag
@@ -120,71 +141,6 @@ static int laga_next(CSOUND *csound, LAG *p) {
   }
 }
  
-/*
-
-void Lag_next(Lag *unit, int inNumSamples)
-{
-	float *out = ZOUT(0);
-	float *in = ZIN(0);
-	float lag = ZIN0(1);
-
-	double y1 = unit->m_y1;
-	double b1 = unit->m_b1;
-
-	if (lag == unit->m_lag) {
-		LOOP1(inNumSamples,
-			double y0 = ZXP(in);
-			ZXP(out) = y1 = y0 + b1 * (y1 - y0);
-		);
-	} else {
-		unit->m_b1 = lag == 0.f ? 0.f : exp(log001 / (lag * unit->mRate->mSampleRate));
-		double b1_slope = CALCSLOPE(unit->m_b1, b1);
-		unit->m_lag = lag;
-		LOOP1(inNumSamples,
-			b1 += b1_slope;
-			double y0 = ZXP(in);
-			ZXP(out) = y1 = y0 + b1 * (y1 - y0);
-		);
-	}
-	unit->m_y1 = zapgremlins(y1);
-}
-
-void Lag_next_1(Lag *unit, int inNumSamples)
-{
-	float *out = OUT(0);
-	float *in = IN(0);
-	float lag = IN0(1);
-
-	double y1 = unit->m_y1;
-	double b1 = unit->m_b1;
-
-	if (lag == unit->m_lag) {
-		double y0 = *in;
-		*out = y1 = y0 + b1 * (y1 - y0);
-	} else {
-		unit->m_b1 = b1 = lag == 0.f ? 0.f : exp(log001 / (lag * unit->mRate->mSampleRate));
-		unit->m_lag = lag;
-		double y0 = *in;
-		*out = y1 = y0 + b1 * (y1 - y0);
-	}
-	unit->m_y1 = zapgremlins(y1);
-}
-
-void Lag_Ctor(Lag* unit)
-{
-	if (BUFLENGTH == 1)
-		SETCALC(Lag_next_1);
-	else
-		SETCALC(Lag_next);
-
-	unit->m_lag = uninitializedControl;
-	unit->m_b1 = 0.f;
-	unit->m_y1 = ZIN0(0);
-	Lag_next(unit, 1);
-}
- */
-
-
 // ------------------------- LagUD ---------------------------
 
 typedef struct {
@@ -192,16 +148,6 @@ typedef struct {
   MYFLT   *out, *in, *lagtimeU, *lagtimeD, *first;
   MYFLT   lagu, lagd, b1u, b1d, y1;
 } LagUD;
-
-/*
-struct LagUD : public Unit
-{
-	float m_lagu, m_lagd;
-	double m_b1u, m_b1d, m_y1;
-};
-
-*/
-
 
 static int lagud_a(CSOUND *csound, LagUD *p) {
   MYFLT
@@ -283,47 +229,6 @@ static int lagud_k(CSOUND *csound, LagUD *p) {
   return OK;
 }
 
-/*
-void LagUD_next(LagUD *unit, int inNumSamples)
-{
-	float *out = ZOUT(0);
-	float *in = ZIN(0);
-	float lagu = ZIN0(1);
-	float lagd = ZIN0(2);
-
-	double y1 = unit->m_y1;
-	double b1u = unit->m_b1u;
-	double b1d = unit->m_b1d;
-
-	if ( (lagu == unit->m_lagu) && (lagd == unit->m_lagd) ) {
-		LOOP1(inNumSamples,
-			double y0 = ZXP(in);
-			if ( y0 > y1 )
-				ZXP(out) = y1 = y0 + b1u * (y1 - y0);
-			else
-				ZXP(out) = y1 = y0 + b1d * (y1 - y0);
-		);
-	} else {
-		unit->m_b1u = lagu == 0.f ? 0.f : exp(log001 / (lagu * unit->mRate->mSampleRate));
-		double b1u_slope = CALCSLOPE(unit->m_b1u, b1u);
-		unit->m_lagu = lagu;
-		unit->m_b1d = lagd == 0.f ? 0.f : exp(log001 / (lagd * unit->mRate->mSampleRate));
-		double b1d_slope = CALCSLOPE(unit->m_b1d, b1d);
-		unit->m_lagd = lagd;
-		LOOP1(inNumSamples,
-		b1u += b1u_slope;
-		b1d += b1d_slope;
-			double y0 = ZXP(in);
-			if ( y0 > y1 )
-				ZXP(out) = y1 = y0 + b1u * (y1 - y0);
-			else
-				ZXP(out) = y1 = y0 + b1d * (y1 - y0);
-		);
-	}
-	unit->m_y1 = zapgremlins(y1);
-}
-*/
-
 static int lagud_init(CSOUND *csound, LagUD *p) {
   p->lagu = -1;
   p->lagd = -1;
@@ -333,27 +238,212 @@ static int lagud_init(CSOUND *csound, LagUD *p) {
   return OK;
 }
 
-/*
-void LagUD_Ctor(LagUD* unit)
-{
-	SETCALC(LagUD_next);
+// ------------------ Trig -------------------------
+// trig(signal, duration)
+// Returns 1 for given duration whenever signal crosses from
+// non-positive to positiv
 
-	unit->m_lagu = uninitializedControl;
-	unit->m_lagd = uninitializedControl;
-	unit->m_b1u = 0.f;
-	unit->m_b1d = 0.f;
-	unit->m_y1 = ZIN0(0);
-	LagUD_next(unit, 1);
+
+typedef struct {
+  OPDS    h;
+  MYFLT   *out, *in, *dur;
+  MYFLT   level, prevtrig;
+  long counter;
+} Trig;
+
+static int trig_a(CSOUND *csound, Trig *p) {
+  MYFLT
+	*out = p->out,
+	*in = p->in;
+  MYFLT
+	dur = *p->dur,
+	sr = csound->GetSr(csound),
+	prevtrig = p->prevtrig,
+	level = p->level;
+  unsigned long counter = p->counter;
+  uint32_t nsmps = CS_KSMPS;
+  for(uint32_t n=0; n<nsmps; n++) {
+	MYFLT curtrig = *in; in++;
+	MYFLT zout;
+	if (counter > 0) {
+	  zout = --counter ? level : FL(0);
+	} else {
+	  if (curtrig > FL(0) && prevtrig <= FL(0)) {
+		counter = (long)(dur * sr + FL(0.5));
+		if (counter < 1) counter = 1;
+		level = curtrig;
+		zout = level;
+	  } else {
+		zout = FL(0);
+	  }
+	}
+	prevtrig = curtrig;
+	*out = zout; out++;
+  }
+  p->prevtrig = prevtrig;
+  p->counter = counter;
+  p->level = level;
+  return OK;
 }
+  
+static int trig_k(CSOUND *csound, Trig *p) {
+  MYFLT curtrig = *p->in;
+  MYFLT dur = *p->dur;
+  MYFLT kr = csound->GetKr(csound);
+  MYFLT prevtrig = p->prevtrig;
+  MYFLT level = p->level;
+  unsigned long counter = p->counter;
+  if (counter > 0) {
+	*p->out = --counter ? level : FL(0);
+  } else {
+	if (curtrig > FL(0) && prevtrig <= FL(0)) {
+	  counter = (long)(dur * kr + FL(0.5));
+	  if (counter < 1)
+		counter = 1;
+	  level = curtrig;
+	  *p->out = level;
+	} else {
+	  *p->out = FL(0);
+	}
+  }
+  p->prevtrig = curtrig;
+  p->counter = counter;
+  p->level = level;
+  return OK;
+}
+
+static int trig_init(CSOUND *csound, Trig *p) {
+  p->counter = 0;
+  p->prevtrig = FL(0);
+  p->level = FL(0);
+  trig_k(csound, p);
+}
+
+
+/*
+
+Phasor
+
+Phasor is a linear ramp between start and end values. When its trigger 
+input crosses from non-positive to positive, Phasor's output will jump 
+to its reset position. Upon reaching the end of its ramp Phasor will wrap 
+back to its start.
+
+NOTE: N.B. Since end is defined as the wrap point, its value is never 
+      actually output.
+
+NOTE: If one wants Phasor to output a signal with frequency freq 
+      oscillating between start and end, then the rate should be 
+      (end - start) * freq / sr where sr is the sampling rate.
+
+Phasor is commonly used as an index control.
+
+aindex phasor atrig, xrate, kstart, kend, kresetPos
+kindex phasor ktrig, krate, kstart, kend, kresetPos
+
+trig: When triggered, jump to resetPos (default: 0, equivalent to start).
+rate: The amount of change per sample, i.e at a rate of 1 the value 
+      of each sample will be 1 greater than the preceding sample.
+start: Start point of the ramp.
+end:   End point of the ramp.
+resetPos: The value to jump to upon receiving a trigger.
 */
-	
+
+
+typedef struct {
+  OPDS    h;
+  MYFLT   *out, *trig, *rate, *start, *end, *resetPos;
+  MYFLT   level, previn;
+} Phasor;
+
+static int phasor_init(CSOUND *csound, Phasor *p) {
+  p->previn = 0;
+  p->level = 0;
+}
+ 
+static int phasor_aa(CSOUND *csound, Phasor *p) {
+  MYFLT *out  = p->out;
+  MYFLT *in = p->trig;
+  MYFLT *rate = p->rate;
+  MYFLT start = *p->start;
+  MYFLT end   = *p->end;
+  MYFLT resetPos = *p->resetPos;
+  MYFLT previn = p->previn;
+  MYFLT level = p->level;
+  for (uint32_t n=0; n<CS_KSMPS; n++) {
+	MYFLT curin = *in; in++;
+	MYFLT zrate = *rate; rate++;
+	if (previn <= FL(0) && curin > FL(0)) {
+	  MYFLT frac = FL(1) - previn/(curin-previn);
+	  level = resetPos + frac * zrate;
+	}
+	*out = level; out++;
+	level += zrate;
+	level = sc_wrap(level, start, end);
+	previn = curin;
+  }
+  p->previn = previn;
+  p->level = level;
+  return OK;
+}
+
+static int phasor_ak(CSOUND *csound, Phasor *p) {
+  MYFLT *out  = p->out;
+  MYFLT *in   = p->trig;
+  MYFLT rate  = *p->rate;
+  MYFLT start = *p->start;
+  MYFLT end   = *p->end;
+  MYFLT resetPos = *p->resetPos;
+  MYFLT previn = p->previn;
+  MYFLT level = p->level;
+  for (uint32_t n=0; n<CS_KSMPS; n++) {
+	MYFLT curin = *in; in++;
+	if (previn <= FL(0) && curin > FL(0)) {
+	  MYFLT frac = FL(1) - previn/(curin-previn);
+	  level = resetPos + frac * rate;
+	}
+	*out = level; out++;
+	level += rate;
+	level = sc_wrap(level, start, end);
+	previn = curin;
+  }
+  p->previn = previn;
+  p->level = level;
+  return OK;
+}
+
+static int phasor_kk(CSOUND *csound, Phasor *p) {
+  MYFLT curin = *p->trig;
+  MYFLT rate  = *p->rate;
+  MYFLT start = *p->start;
+  MYFLT end   = *p->end;
+  MYFLT resetPos = *p->resetPos;
+  MYFLT previn = p->previn;
+  MYFLT level = p->level;
+
+  if (previn <= FL(0) && curin > FL(0)) {
+	level = resetPos;
+  }
+  level = sc_wrap(level, start, end);
+  *p->out = level;
+  level += rate;
+  p->previn = curin;
+  p->level = level;
+  return OK;
+}
+
 #define S(x)    sizeof(x)
 
 static OENTRY localops[] = {
   { "sc_lag",     S(LAG),   0, 3,   "k", "kko", (SUBR)lagk_init, (SUBR)lagk_next },
   { "sc_lag",     S(LAG),   0, 5,   "a", "ako", (SUBR)laga_init, NULL, (SUBR)laga_next },
   { "sc_lagud",   S(LagUD), 0, 3,   "k", "kkko", (SUBR)lagud_init, (SUBR)lagud_k },
-  { "sc_lagud",   S(LagUD), 0, 5,   "a", "akko", (SUBR)lagud_init, NULL, (SUBR)lagud_a }
+  { "sc_lagud",   S(LagUD), 0, 5,   "a", "akko", (SUBR)lagud_init, NULL, (SUBR)lagud_a },
+  { "sc_trig",    S(Trig),  0, 3,   "k", "kk", (SUBR)trig_init, (SUBR)trig_k },
+  { "sc_trig",    S(Trig),  0, 5,   "a", "ak", (SUBR)trig_init, NULL, (SUBR)trig_a },
+  { "sc_phasor",  S(Phasor),  0, 3,   "k", "kkkkk", (SUBR)phasor_init, (SUBR)phasor_kk },
+  { "sc_phasor",  S(Phasor),  0, 5,   "a", "akkkk", (SUBR)phasor_init, (SUBR)phasor_ak },
+  { "sc_phasor",  S(Phasor),  0, 5,   "a", "aakkk", (SUBR)phasor_init, (SUBR)phasor_aa } 
 };
 
 
