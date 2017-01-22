@@ -20,7 +20,7 @@
 
 #define ZXP(z) (*(z)++)
 
-inline MYFLT zapgremlins(MYFLT x)
+static inline MYFLT zapgremlins(MYFLT x)
 {
 	MYFLT absx = abs(x);
 	// very small numbers fail the first test, eliminating denormalized numbers
@@ -31,10 +31,8 @@ inline MYFLT zapgremlins(MYFLT x)
 }
 
 
-
-inline MYFLT sc_wrap(MYFLT in, MYFLT lo, MYFLT hi)
-{
-	MYFLT range;
+static inline MYFLT sc_wrap(MYFLT in, MYFLT lo, MYFLT hi) {
+ 	MYFLT range;
 	// avoid the divide if possible
 	if (in >= hi) {
 		range = hi - lo;
@@ -47,9 +45,10 @@ inline MYFLT sc_wrap(MYFLT in, MYFLT lo, MYFLT hi)
 	} else return in;
 
 	if (hi == lo) return lo;
-	return in - range * floor((in - lo)/range);
+	// return in - range * floor((in - lo)/range);
+	return in - range * FLOOR((in - lo) / range);
 }
-
+ 
 
 /*
 
@@ -355,21 +354,29 @@ resetPos: The value to jump to upon receiving a trigger.
 typedef struct {
   OPDS    h;
   MYFLT   *out, *trig, *rate, *start, *end, *resetPos;
-  MYFLT   level, previn;
+  MYFLT   level, previn, resetk;
 } Phasor;
 
 static int phasor_init(CSOUND *csound, Phasor *p) {
   p->previn = 0;
   p->level = 0;
+  p->resetk = 1;
+  
 }
- 
+
+static int phasor_init0(CSOUND *csound, Phasor *p) {
+  p->previn = 0;
+  p->level = 0;
+  p->resetk = 0;
+}
+
 static int phasor_aa(CSOUND *csound, Phasor *p) {
   MYFLT *out  = p->out;
   MYFLT *in = p->trig;
   MYFLT *rate = p->rate;
   MYFLT start = *p->start;
   MYFLT end   = *p->end;
-  MYFLT resetPos = *p->resetPos;
+  MYFLT resetPos = p->resetk ? (*p->resetPos) : 0;
   MYFLT previn = p->previn;
   MYFLT level = p->level;
   for (uint32_t n=0; n<CS_KSMPS; n++) {
@@ -395,7 +402,8 @@ static int phasor_ak(CSOUND *csound, Phasor *p) {
   MYFLT rate  = *p->rate;
   MYFLT start = *p->start;
   MYFLT end   = *p->end;
-  MYFLT resetPos = *p->resetPos;
+  // MYFLT resetPos = *p->resetPos;
+  MYFLT resetPos = p->resetk ? (*p->resetPos) : 0;
   MYFLT previn = p->previn;
   MYFLT level = p->level;
   for (uint32_t n=0; n<CS_KSMPS; n++) {
@@ -419,7 +427,8 @@ static int phasor_kk(CSOUND *csound, Phasor *p) {
   MYFLT rate  = *p->rate;
   MYFLT start = *p->start;
   MYFLT end   = *p->end;
-  MYFLT resetPos = *p->resetPos;
+  // MYFLT resetPos = *p->resetPos;
+  MYFLT resetPos = p->resetk ? (*p->resetPos) : 0;
   MYFLT previn = p->previn;
   MYFLT level = p->level;
 
@@ -445,8 +454,11 @@ static OENTRY localops[] = {
   { "sc_trig",    S(Trig),  0, 3,   "k", "kk", (SUBR)trig_init, (SUBR)trig_k },
   { "sc_trig",    S(Trig),  0, 5,   "a", "ak", (SUBR)trig_init, NULL, (SUBR)trig_a },
   { "sc_phasor",  S(Phasor),  0, 3,   "k", "kkkkk", (SUBR)phasor_init, (SUBR)phasor_kk },
-  { "sc_phasor",  S(Phasor),  0, 5,   "a", "akkkk", (SUBR)phasor_init, (SUBR)phasor_ak },
-  { "sc_phasor",  S(Phasor),  0, 5,   "a", "aakkk", (SUBR)phasor_init, (SUBR)phasor_aa }
+  { "sc_phasor",  S(Phasor),  0, 5,   "a", "akkkk", (SUBR)phasor_init, NULL, (SUBR)phasor_ak },
+  { "sc_phasor",  S(Phasor),  0, 5,   "a", "aakkk", (SUBR)phasor_init, NULL, (SUBR)phasor_aa },
+  { "sc_phasor",  S(Phasor),  0, 3,   "k", "kkkk", (SUBR)phasor_init0, (SUBR)phasor_kk },
+  { "sc_phasor",  S(Phasor),  0, 5,   "a", "akkk", (SUBR)phasor_init0, NULL, (SUBR)phasor_ak },
+  { "sc_phasor",  S(Phasor),  0, 5,   "a", "aakk", (SUBR)phasor_init0, NULL, (SUBR)phasor_aa }
 };
 
 LINKAGE
