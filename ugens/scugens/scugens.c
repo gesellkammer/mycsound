@@ -18,6 +18,8 @@
 	} while (--xxn);		   \
   }
 
+#define ZXP(z) (*(z)++)
+
 inline MYFLT zapgremlins(MYFLT x)
 {
 	MYFLT absx = abs(x);
@@ -432,6 +434,7 @@ static int phasor_kk(CSOUND *csound, Phasor *p) {
   return OK;
 }
 
+
 #define S(x)    sizeof(x)
 
 static OENTRY localops[] = {
@@ -443,8 +446,7 @@ static OENTRY localops[] = {
   { "sc_trig",    S(Trig),  0, 5,   "a", "ak", (SUBR)trig_init, NULL, (SUBR)trig_a },
   { "sc_phasor",  S(Phasor),  0, 3,   "k", "kkkkk", (SUBR)phasor_init, (SUBR)phasor_kk },
   { "sc_phasor",  S(Phasor),  0, 5,   "a", "akkkk", (SUBR)phasor_init, (SUBR)phasor_ak },
-  { "sc_phasor",  S(Phasor),  0, 5,   "a", "aakkk", (SUBR)phasor_init, (SUBR)phasor_aa } 
+  { "sc_phasor",  S(Phasor),  0, 5,   "a", "aakkk", (SUBR)phasor_init, (SUBR)phasor_aa }
 };
-
 
 LINKAGE
