@@ -1,10 +1,8 @@
-# Miscelaneous ugens for csound
+﻿# Miscelaneous ugens for csound
 
 ## bpf
 
-Breakpoint function (linear interpolation)
-
-Interpolates between the points (kxn, kyn).
+Breakpoint function (linear interpolation). Interpolates between the points (kxn, kyn).
 
 
 
