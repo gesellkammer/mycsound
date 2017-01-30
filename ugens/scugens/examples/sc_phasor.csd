@@ -17,8 +17,8 @@ instr 1
 endin
 	
 instr 2
-    krate linseg 1, p3, 40
-    atrig = mpulse(1, 1/krate)
+	krate linseg 1, p3, 40
+	atrig = mpulse(1, 1/krate)
 	ax sc_phasor atrig, krate/sr, 0, 1
 	asine oscili 0.2, ax*500+500
 	outch 2, asine
